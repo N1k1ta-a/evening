@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Планировщик вечера ✨</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Manrope:wght@300;400;600;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body { height: 100%; }
+
+  body {
+    min-height:100vh;
+    font-family:'Manrope',sans-serif;
+    background: linear-gradient(135deg,#1a1028 0%,#2d1b3d 40%,#4a2545 70%,#6b2f4a 100%);
+    background-attachment:fixed;
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    padding:16px; position:relative; overflow-x:hidden;
+  }
+
+  .stars { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .star {
+    position:absolute; background:#fff; border-radius:50%; opacity:.7;
+    animation: twinkle 3s infinite ease-in-out;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity:.15; transform:scale(.8); }
+    50% { opacity:.9; transform:scale(1.2); }
+  }
+
+  /* ===== Карточка ===== */
+  .card {
+    position:relative; z-index:1;
+    width:100%; max-width:680px;
+    max-height: calc(100vh - 32px);
+    display:flex; flex-direction:column;
+    background:rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:24px;
+    padding:28px 22px 24px;
+    box-shadow:0 30px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.15);
+    animation: rise .8s cubic-bezier(.2,.8,.3,1);
+  }
+  @keyframes rise { from{opacity:0; transform:translateY(30px);} to{opacity:1; transform:translateY(0);} }
+
+  h1 {
+    font-family:'Playfair Display',serif;
+    font-size:clamp(22px,6vw,38px); font-weight:700; text-align:center;
+    background:linear-gradient(90deg,#ffd6e8,#ffb3c6,#ffd6a5,#ffb3c6);
+    background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: shimmer 5s linear infinite; margin-bottom:6px;
+    transition: background-image .6s ease;
+    flex-shrink: 0;
+  }
+  @keyframes shimmer { to { background-position:200% center; } }
+
+  .subtitle {
+    text-align:center; color:rgba(255,255,255,.55);
+    font-size:13px; font-weight:300; letter-spacing:.5px; margin-bottom:18px;
+    flex-shrink: 0;
+  }
+
+  .progress {
+    display:flex; gap:7px; justify-content:center; margin-bottom:18px;
+    flex-shrink: 0;
+  }
+  .dot {
+    width:7px; height:7px; border-radius:50%;
+    background:rgba(255,255,255,.2); transition:.3s;
+  }
+  .dot.active { background:#ffb3c6; width:22px; border-radius:6px; }
+  .dot.done { background:rgba(255,179,198,.6); }
+
+  /* Область шагов — скроллится независимо */
+  .steps-wrap {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 4px 2px 2px;
+    margin-right: -4px;
+  }
+  .steps-wrap::-webkit-scrollbar { width: 6px; }
+  .steps-wrap::-webkit-scrollbar-thumb {
+    background: rgba(255,179,198,.35); border-radius: 3px;
+  }
+
+  .step { display:none; animation: fadeIn .35s ease; }
+  .step.active { display:block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+  .question {
+    font-family:'Playfair Display',serif;
+    font-size:18px; margin-bottom:14px; color:#ffe4ef; text-align:center;
+  }
+
+  /* ===== СЕТКА ВАРИАНТОВ ===== */
+  .options {
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);   /* на телефоне — 2 колонки */
+    gap:10px;
+  }
+
+  .option {
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px; padding:14px 10px; cursor:pointer; text-align:center;
+    transition:.2s cubic-bezier(.2,.8,.3,1);
+    font-size:13px; font-weight:400; color:#fff;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    line-height:1.3;
+    min-height: 92px;
+    justify-content: center;
+    word-break: break-word;
+  }
+  .option .emoji { font-size:26px; transition:.2s; line-height: 1; }
+  .option:hover, .option:active {
+    background:rgba(255,255,255,0.12);
+    border-color:rgba(255,182,210,.6);
+    transform:translateY(-2px);
+    box-shadow:0 10px 22px rgba(255,120,170,.22);
+  }
+  .option.selected {
+    background:linear-gradient(135deg,rgba(255,150,190,.35),rgba(255,200,150,.25));
+    border-color:#ffb3c6;
+    box-shadow:0 0 0 2px rgba(255,179,198,.5), 0 10px 24px rgba(255,120,170,.35);
+  }
+
+  /* На больших экранах — авто-колонки */
+  @media (min-width:560px){
+    .options { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+    .option { min-height: 108px; padding:16px 12px; font-size:13.5px; }
+    .option .emoji { font-size:28px; }
+  }
+
+  /* Настроение — 4 в ряд на телефоне */
+  #moodOptions { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width:560px){
+    #moodOptions { grid-template-columns: repeat(4, 1fr); }
+  }
+  #moodOptions .option { min-height: 86px; }
+
+  .field-group { margin-bottom:16px; }
+  .field-label {
+    display:block; font-size:13px; color:rgba(255,255,255,.6);
+    margin-bottom:8px; letter-spacing:.4px; font-weight:300;
+  }
+
+  input[type="date"], input[type="time"], input[type="text"] {
+    width:100%; padding:14px 16px; border-radius:14px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.06);
+    color:#fff; font-family:'Manrope',sans-serif; font-size:16px;
+    outline:none; transition:.25s; color-scheme: dark;
+  }
+  input::placeholder { color:rgba(255,255,255,.35); }
+  input:focus {
+    border-color:#ffb3c6; background:rgba(255,255,255,0.1);
+    box-shadow:0 0 0 3px rgba(255,179,198,.18);
+  }
+
+  .btn-row { display:flex; gap:10px; margin-top:20px; }
+
+  button {
+    font-family:'Manrope',sans-serif; font-size:15px; font-weight:600;
+    padding:14px 22px; border-radius:16px; border:none; cursor:pointer;
+    transition:.2s cubic-bezier(.2,.8,.3,1); letter-spacing:.3px;
+    touch-action: manipulation;
+  }
+
+  .btn-next, .btn-final {
+    flex:1; background:linear-gradient(135deg,#ff8fb1,#ffb38a);
+    color:#3a1128; box-shadow:0 12px 28px rgba(255,120,170,.35);
+  }
+  .btn-next:hover, .btn-final:hover,
+  .btn-next:active, .btn-final:active {
+    transform:translateY(-2px);
+    box-shadow:0 16px 34px rgba(255,120,170,.5);
+    filter:brightness(1.07);
+  }
+  .btn-next:disabled, .btn-final:disabled {
+    opacity:.35; cursor:not-allowed; transform:none; box-shadow:none; filter:none;
+  }
+
+  .btn-back {
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15);
+    color:#fff; flex:0 0 auto;
+  }
+  .btn-back:hover, .btn-back:active { background:rgba(255,255,255,0.16); }
+
+  /* ===== ИТОГ ===== */
+  .result { text-align:center; animation: fadeIn .5s ease; }
+  .result-heart {
+    font-size:46px; margin-bottom:8px; display:inline-block;
+    animation: pulse 1.6s infinite ease-in-out;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
+
+  .result-title {
+    font-family:'Playfair Display',serif;
+    font-size:22px; margin-bottom:18px; color:#ffe4ef;
+  }
+
+  .result-card {
+    border-radius:22px;
+    padding:22px 20px;
+    text-align:left;
+    position:relative;
+    overflow:hidden;
+    transition: background .8s ease, box-shadow .8s ease, border-color .8s ease;
+    background: linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+    border:1px solid rgba(255,179,198,.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 18px 40px rgba(0,0,0,.3);
+  }
+  .result-card::before {
+    content:''; position:absolute; inset:-40% -20% auto auto;
+    width:200px; height:200px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,255,255,.35), transparent 70%);
+    opacity:.55; pointer-events:none;
+    animation: floatGlow 8s ease-in-out infinite;
+  }
+  .result-card::after {
+    content:''; position:absolute; inset:auto auto -40% -20%;
+    width:180px; height:180px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,255,255,.25), transparent 70%);
+    opacity:.5; pointer-events:none;
+    animation: floatGlow 10s ease-in-out infinite reverse;
+  }
+  @keyframes floatGlow {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-16px, 12px) scale(1.1); }
+  }
+
+  .result-line {
+    display:flex; align-items:center; gap:12px;
+    padding:10px 0; border-bottom:1px dashed rgba(255,255,255,.18);
+    font-size:14px; position:relative; z-index:1;
+  }
+  .result-line:last-child { border-bottom:none; }
+  .result-line .ico { font-size:20px; flex:0 0 28px; text-align:center; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+  .result-line .lbl { color:rgba(255,255,255,.7); font-size:11px; display:block; font-weight:300; }
+  .result-line .val { color:#fff; font-weight:600; text-shadow: 0 1px 6px rgba(0,0,0,.35); }
+
+  .result-note {
+    margin-top:16px; font-size:13px; font-style:italic;
+    color:rgba(255,255,255,.85); line-height:1.6; text-align:center;
+    transition: color .6s ease;
+    position:relative; z-index:1;
+    text-shadow: 0 1px 6px rgba(0,0,0,.35);
+  }
+
+  .btn-restart {
+    margin-top:18px; background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.16); color:#fff; width:100%;
+  }
+  .btn-restart:hover, .btn-restart:active { background:rgba(255,255,255,0.16); }
+
+  .btn-share {
+    margin-top:10px;
+    background:linear-gradient(135deg,#5fb3ff,#8a7cff);
+    color:#fff; width:100%;
+    box-shadow: 0 10px 24px rgba(100,140,255,.35);
+  }
+  .btn-share:hover, .btn-share:active {
+    filter:brightness(1.08); transform:translateY(-2px);
+  }
+
+  /* ===== Конфетти ===== */
+  .confetti {
+    position:fixed; width:10px; height:14px; top:-20px; z-index:999;
+    pointer-events:none; animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(105vh) rotate(720deg); opacity:0; }
+  }
+
+  /* ===== Модалка ===== */
+  .modal-bg {
+    position:fixed; inset:0; z-index:1000;
+    background:rgba(15,8,20,.7);
+    backdrop-filter: blur(6px);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-bg.show { display:flex; animation: fadeIn .3s ease; }
+  .modal {
+    width:100%; max-width:440px;
+    background:linear-gradient(160deg,#2d1b3d,#4a2545);
+    border:1px solid rgba(255,179,198,.4);
+    border-radius:22px; padding:24px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);
+    animation: rise .4s ease;
+  }
+  .modal h3 {
+    font-family:'Playfair Display',serif; font-size:18px;
+    margin-bottom:14px; color:#ffe4ef; text-align:center;
+  }
+  .modal .btn-row { margin-top:16px; }
+
+  /* Мобильные правки */
+  @media (max-width:400px){
+    .card { padding: 22px 16px 20px; border-radius: 20px; }
+    h1 { font-size: 22px; }
+    .subtitle { font-size: 12px; margin-bottom: 14px; }
+    .option { font-size: 12px; min-height: 84px; padding: 10px 8px; }
+    .option .emoji { font-size: 24px; }
+    button { padding: 13px 18px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="card" id="mainCard">
+  <h1 id="mainTitle">Как проведём вечер?</h1>
+  <p class="subtitle">Выбери то, что тебе по душе ✨</p>
+
+  <div class="progress" id="progress">
+    <div class="dot active"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+
+  <!-- Область шагов (внутри неё скролл) -->
+  <div class="steps-wrap">
+
+    <!-- ШАГ 1 -->
+    <div class="step active" data-step="0">
+      <div class="question">Что тебе хочется?</div>
+      <div class="options" id="typeOptions">
+        <div class="option" data-value="Романтический ужин при свечах"><span class="emoji">🕯️</span>Ужин при свечах</div>
+        <div class="option" data-value="Вкусный ужин дома и тёплые разговоры"><span class="emoji">🍝</span>Ужин дома</div>
+        <div class="option" data-value="Свидание в уютном ресторане"><span class="emoji">🥂</span>Ресторан</div>
+        <div class="option" data-value="Просмотр мультика с пледом и вкусняшками"><span class="emoji">🧸</span>Мультик</div>
+        <div class="option" data-value="Просмотр аниме вместе"><span class="emoji">🌸</span>Аниме</div>
+        <div class="option" data-value="Просмотр сериала до ночи"><span class="emoji">📺</span>Сериал</div>
+        <div class="option" data-value="Прогулка по городу рука в руке"><span class="emoji">🚶‍♀️</span>Погулять</div>
+        <div class="option" data-value="Прогулка под звёздами"><span class="emoji">🌌</span>Под звёздами</div>
+        <div class="option" data-value="Поиграть в Genshin Impact"><span class="emoji">⚔️</span>Genshin</div>
+        <div class="option" data-value="Поиграть в Mobile Legends"><span class="emoji">🛡️</span>Mobile Legends</div>
+        <div class="option" data-value="Поиграть в Where Winds Meet"><span class="emoji">🗡️</span>Where Winds Meet</div>
+        <div class="option" data-value="Сходить на творческий мастер-класс"><span class="emoji">🎨</span>Мастер-класс</div>
+        <div class="option" data-value="Поплавать в аквапарке"><span class="emoji">🌊</span>Аквапарк</div>
+        <div class="option" data-value="Сходить в кино на большой экран"><span class="emoji">🎬</span>В кино</div>
+        <div class="option" data-value="Пикник на крыше с вкусняшками"><span class="emoji">🧺</span>Пикник</div>
+        <div class="option" data-value="Спа-вечер с ванной и свечами"><span class="emoji">🛁</span>Спа-вечер</div>
+        <div class="option" data-value="Танцевать вместе до утра"><span class="emoji">💃</span>Танцы</div>
+        <div class="option" data-value="Заказать вкусную еду и обниматься"><span class="emoji">🍕</span>Обнимашки</div>
+        <div class="option" data-value="Печь вместе что-то вкусное"><span class="emoji">🧁</span>Печь вместе</div>
+        <div class="option" data-value="Устроить фотосессию вдвоём"><span class="emoji">📸</span>Фотосессия</div>
+        <div class="option custom-trigger" data-custom="true" style="grid-column: 1 / -1;"><span class="emoji">💭</span>Свой вариант…</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-next" id="next1" disabled>Далее →</button>
+      </div>
+    </div>
+
+    <!-- ШАГ 2 -->
+    <div class="step" data-step="1">
+      <div class="question">Когда?</div>
+      <div class="field-group">
+        <label class="field-label">Дата вечера</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div class="btn-row">
+        <button class="btn-back" data-back="0">← Назад</button>
+        <button class="btn-next" id="next2" disabled>Далее →</button>
+      </div>
+    </div>
+
+    <!-- ШАГ 3 -->
+    <div class="step" data-step="2">
+      <div class="question">Во сколько?</div>
+      <div class="field-group">
+        <label class="field-label">Время начала</label>
+        <input type="time" id="timeInput" value="19:00">
+      </div>
+      <div class="btn-row">
+        <button class="btn-back" data-back="1">← Назад</button>
+        <button class="btn-next" id="next3">Далее →</button>
+      </div>
+    </div>
+
+    <!-- ШАГ 4 -->
+    <div class="step" data-step="3">
+      <div class="question">Последний штрих</div>
+      <div class="field-group">
+        <label class="field-label">Настроение вечера</label>
+        <div class="options" id="moodOptions">
+          <div class="option" data-value="Нежное и романтичное"><span class="emoji">🌸</span>Нежное</div>
+          <div class="option" data-value="Весёлое и беззаботное"><span class="emoji">😄</span>Весёлое</div>
+          <div class="option" data-value="Таинственное и загадочное"><span class="emoji">🔮</span>Таинственное</div>
+          <div class="option" data-value="Спокойное и уютное"><span class="emoji">☕</span>Спокойное</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-back" data-back="2">← Назад</button>
+        <button class="btn-final" id="finish" disabled>✨ Показать итог</button>
+      </div>
+    </div>
+
+    <!-- РЕЗУЛЬТАТ -->
+    <div class="step" data-step="4">
+      <div class="result">
+        <div class="result-heart">💖</div>
+        <div class="result-title">Твой идеальный вечер</div>
+        <div class="result-card" id="resultCard">
+          <div class="result-line">
+            <span class="ico" id="rIco">🕯️</span>
+            <span><span class="lbl">Чем займёмся</span><span class="val" id="rType">—</span></span>
+          </div>
+          <div class="result-line">
+            <span class="ico">📅</span>
+            <span><span class="lbl">Дата</span><span class="val" id="rDate">—</span></span>
+          </div>
+          <div class="result-line">
+            <span class="ico">🕐</span>
+            <span><span class="lbl">Время</span><span class="val" id="rTime">—</span></span>
+          </div>
+          <div class="result-line">
+            <span class="ico">🎀</span>
+            <span><span class="lbl">Настроение</span><span class="val" id="rMood">—</span></span>
+          </div>
+        </div>
+        <p class="result-note" id="rNote"></p>
+        <button class="btn-share" id="shareBtn">💌 Отправить результат мне</button>
+        <button class="btn-restart" id="restart">🔄 Спланировать заново</button>
+      </div>
+    </div>
+
+  </div><!-- /steps-wrap -->
+</div>
+
+<!-- МОДАЛКА -->
+<div class="modal-bg" id="customModal">
+  <div class="modal">
+    <h3>💭 Расскажи, чего хочется</h3>
+    <input type="text" id="customInput" placeholder="Например: колесо обозрения…" maxlength="80">
+    <div class="btn-row">
+      <button class="btn-back" id="customCancel">Отмена</button>
+      <button class="btn-next" id="customSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---------- Звёзды ---------- */
+  (function makeStars(){
+    const box = document.getElementById('stars');
+    for(let i=0;i<50;i++){
+      const s = document.createElement('div');
+      s.className = 'star';
+      const size = Math.random()*2.5 + 1;
+      s.style.width = size+'px'; s.style.height = size+'px';
+      s.style.left = Math.random()*100+'%';
+      s.style.top = Math.random()*100+'%';
+      s.style.animationDelay = (Math.random()*3)+'s';
+      s.style.animationDuration = (2.5+Math.random()*3)+'s';
+      box.appendChild(s);
+    }
+  })();
+
+  /* ====== Темы для итоговой карточки ====== */
+  const RESULT_THEMES = [
+    { name:'sunset',  bg:'linear-gradient(160deg,#ff8fb1,#ffb38a 50%,#ffd6a5)', border:'rgba(255,255,255,.45)', shadow:'0 22px 55px rgba(255,120,170,.45)' },
+    { name:'lavender',bg:'linear-gradient(160deg,#6a4c93,#a26ac4 50%,#e0aaff)', border:'rgba(255,255,255,.4)',  shadow:'0 22px 55px rgba(160,90,210,.45)' },
+    { name:'mint',    bg:'linear-gradient(160deg,#2ec4b6,#7bd8c8 50%,#c8f4e3)', border:'rgba(255,255,255,.45)', shadow:'0 22px 55px rgba(46,196,182,.45)' },
+    { name:'cosmos',  bg:'linear-gradient(160deg,#1e1b4b,#4c1d95 45%,#7c3aed)', border:'rgba(200,180,255,.5)', shadow:'0 22px 55px rgba(100,60,220,.55)' },
+    { name:'peach',   bg:'linear-gradient(160deg,#ff9a76,#ffb997 50%,#ffe0c7)', border:'rgba(255,255,255,.5)',  shadow:'0 22px 55px rgba(255,140,100,.45)' },
+    { name:'rosegold',bg:'linear-gradient(160deg,#e8a2b8,#f5c4a1 50%,#fde8d0)', border:'rgba(255,255,255,.55)', shadow:'0 22px 55px rgba(230,150,170,.45)' },
+    { name:'ocean',   bg:'linear-gradient(160deg,#0f3057,#1f6f8b 50%,#5fc9d6)', border:'rgba(180,240,255,.45)', shadow:'0 22px 55px rgba(30,110,150,.55)' },
+    { name:'sakura',  bg:'linear-gradient(160deg,#ffb3c6,#ffc9de 50%,#ffe4ef)', border:'rgba(255,255,255,.6)',  shadow:'0 22px 55px rgba(255,150,190,.45)' },
+    { name:'forest',  bg:'linear-gradient(160deg,#2d6a4f,#52b788 50%,#b7e4c7)', border:'rgba(220,255,235,.5)', shadow:'0 22px 55px rgba(50,150,110,.5)' },
+    { name:'wine',    bg:'linear-gradient(160deg,#7b1e3a,#b0345c 50%,#e36a8c)', border:'rgba(255,200,215,.45)', shadow:'0 22px 55px rgba(160,40,80,.55)' },
+    { name:'gold',    bg:'linear-gradient(160deg,#b8860b,#e0b84c 50%,#ffe9a8)', border:'rgba(255,250,220,.55)', shadow:'0 22px 55px rgba(200,160,50,.5)' },
+    { name:'tokyo',   bg:'linear-gradient(160deg,#141e30,#243b55 45%,#4a6fa5)', border:'rgba(150,190,255,.4)', shadow:'0 22px 55px rgba(40,80,140,.55)' }
+  ];
+
+  const TITLE_GRADIENTS = {
+    sunset:'linear-gradient(90deg,#ffe4ef,#ffb3c6,#ffd6a5,#ffb3c6)',
+    lavender:'linear-gradient(90deg,#e0aaff,#c77dff,#ffd6e8,#c77dff)',
+    mint:'linear-gradient(90deg,#c8f4e3,#7bd8c8,#a8e6cf,#7bd8c8)',
+    cosmos:'linear-gradient(90deg,#c4b5fd,#a78bfa,#f0abfc,#a78bfa)',
+    peach:'linear-gradient(90deg,#ffe0c7,#ffb997,#ff9a76,#ffb997)',
+    rosegold:'linear-gradient(90deg,#fde8d0,#f5c4a1,#e8a2b8,#f5c4a1)',
+    ocean:'linear-gradient(90deg,#b8e6f0,#5fc9d6,#1f6f8b,#5fc9d6)',
+    sakura:'linear-gradient(90deg,#ffe4ef,#ffc9de,#ffb3c6,#ffc9de)',
+    forest:'linear-gradient(90deg,#d8f3dc,#95d5b2,#52b788,#95d5b2)',
+    wine:'linear-gradient(90deg,#ffc9d8,#e36a8c,#b0345c,#e36a8c)',
+    gold:'linear-gradient(90deg,#fff3c4,#ffe9a8,#e0b84c,#ffe9a8)',
+    tokyo:'linear-gradient(90deg,#c9d9f5,#8fabd8,#4a6fa5,#8fabd8)'
+  };
+
+  /* ---------- Состояние ---------- */
+  const state = { type:null, typeEmoji:'✨', date:null, time:null, mood:null };
+
+  /* ---------- Навигация ---------- */
+  const steps = [...document.querySelectorAll('.step')];
+  const dots  = [...document.querySelectorAll('.dot')];
+  const stepsWrap = document.querySelector('.steps-wrap');
+
+  function goTo(i){
+    steps.forEach(s => s.classList.toggle('active', +s.dataset.step === i));
+    dots.forEach((d,idx) => {
+      d.classList.toggle('active', idx === i);
+      d.classList.toggle('done', idx < i);
+    });
+    // Скролл внутри контейнера шагов, а не всей страницы
+    if(stepsWrap) stepsWrap.scrollTop = 0;
+  }
+  document.querySelectorAll('[data-back]').forEach(btn=>{
+    btn.addEventListener('click', ()=> goTo(+btn.dataset.back));
+  });
+
+  /* ---------- Шаг 1 ---------- */
+  const typeOptions = document.querySelectorAll('#typeOptions .option');
+  const next1 = document.getElementById('next1');
+  const customModal = document.getElementById('customModal');
+  const customInput = document.getElementById('customInput');
+
+  typeOptions.forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      if(opt.dataset.custom === 'true'){
+        customModal.classList.add('show');
+        setTimeout(()=> customInput.focus(), 100);
+        return;
+      }
+      typeOptions.forEach(o=>o.classList.remove('selected'));
+      opt.classList.add('selected');
+      state.type = opt.dataset.value;
+      state.typeEmoji = opt.querySelector('.emoji').textContent;
+      next1.disabled = false;
+    });
+  });
+
+  document.getElementById('customCancel').addEventListener('click', ()=>{
+    customModal.classList.remove('show');
+    customInput.value = '';
+  });
+
+  document.getElementById('customSave').addEventListener('click', ()=>{
+    const val = customInput.value.trim();
+    if(!val) { customInput.focus(); return; }
+    typeOptions.forEach(o=>o.classList.remove('selected'));
+    document.querySelector('.custom-trigger').classList.add('selected');
+    state.type = val;
+    state.typeEmoji = '💭';
+    next1.disabled = false;
+    customModal.classList.remove('show');
+  });
+
+  customInput.addEventListener('keydown', e=>{
+    if(e.key === 'Enter') document.getElementById('customSave').click();
+  });
+
+  next1.addEventListener('click', ()=> goTo(1));
+
+  /* ---------- Шаг 2 ---------- */
+  const dateInput = document.getElementById('dateInput');
+  const next2 = document.getElementById('next2');
+  const iso = new Date().toISOString().split('T')[0];
+  dateInput.min = iso;
+  dateInput.value = iso;
+
+  function checkDate(){
+    if(dateInput.value){ state.date = dateInput.value; next2.disabled = false; }
+    else { next2.disabled = true; }
+  }
+  dateInput.addEventListener('change', checkDate);
+  dateInput.addEventListener('input', checkDate);
+  checkDate();
+  next2.addEventListener('click', ()=> goTo(2));
+
+  /* ---------- Шаг 3 ---------- */
+  const timeInput = document.getElementById('timeInput');
+  document.getElementById('next3').addEventListener('click', ()=>{
+    state.time = timeInput.value || '19:00';
+    goTo(3);
+  });
+
+  /* ---------- Шаг 4 ---------- */
+  const moodOptions = document.querySelectorAll('#moodOptions .option');
+  const finishBtn = document.getElementById('finish');
+  moodOptions.forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      moodOptions.forEach(o=>o.classList.remove('selected'));
+      opt.classList.add('selected');
+      state.mood = opt.dataset.value;
+      finishBtn.disabled = false;
+    });
+  });
+
+  finishBtn.addEventListener('click', ()=>{
+    renderResult();
+    goTo(4);
+    burstConfetti();
+  });
+
+  function formatDate(isoStr){
+    const d = new Date(isoStr + 'T00:00:00');
+    const days = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+    const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}, ${days[d.getDay()]}`;
+  }
+
+  function applyRandomTheme(){
+    const card = document.getElementById('resultCard');
+    const theme = RESULT_THEMES[Math.floor(Math.random()*RESULT_THEMES.length)];
+    card.style.background = theme.bg;
+    card.style.borderColor = theme.border;
+    card.style.boxShadow = `inset 0 1px 0 rgba(255,255,255,.35), ${theme.shadow}`;
+    card.dataset.theme = theme.name;
+
+    const title = document.getElementById('mainTitle');
+    title.style.backgroundImage = TITLE_GRADIENTS[theme.name] || TITLE_GRADIENTS.sunset;
+    title.style.backgroundSize = '200% auto';
+    title.style.webkitBackgroundClip = 'text';
+    title.style.backgroundClip = 'text';
+    title.style.color = 'transparent';
+  }
+
+  function renderResult(){
+    document.getElementById('rIco').textContent   = state.typeEmoji;
+    document.getElementById('rType').textContent  = state.type || '—';
+    document.getElementById('rDate').textContent  = state.date ? formatDate(state.date) : '—';
+    document.getElementById('rTime').textContent  = state.time || '—';
+    document.getElementById('rMood').textContent  = state.mood || '—';
+
+    applyRandomTheme();
+
+    const notes = [
+      'Главное — не что мы делаем, а с кем. Уверен, будет волшебно 💫',
+      'Этот вечер уже звучит идеально. Осталось только дождаться 🌙',
+      'Пусть каждая минута будет тёплой и запоминающейся 💕',
+      'Отличный выбор! Уверен, ты будешь сиять весь вечер ✨',
+      'Такой вечер точно захочется повторить ещё не раз 🌸',
+      'Уже представляю, как будет здорово. Спасибо, что выбрала 💖'
+    ];
+    document.getElementById('rNote').textContent =
+      notes[Math.floor(Math.random()*notes.length)];
+  }
+
+  /* ---------- Кнопка «Отправить результат мне» ---------- */
+  const SHARE_TELEGRAM = ''; // ← если хочешь — впиши свой @username без @, тогда будет открываться чат с тобой
+  const SHARE_WHATSAPP = ''; // ← или номер в формате 79991234567
+
+  document.getElementById('shareBtn').addEventListener('click', ()=>{
+    const text =
+      `💖 Мой идеальный вечер!\n\n` +
+      `🎯 ${state.type}\n` +
+      `📅 ${state.date ? formatDate(state.date) : '—'}\n` +
+      `🕐 ${state.time}\n` +
+      `🎀 ${state.mood}`;
+    const encoded = encodeURIComponent(text);
+
+    if(SHARE_WHATSAPP){
+      window.open(`https://wa.me/${SHARE_WHATSAPP}?text=${encoded}`, '_blank');
+    } else if(SHARE_TELEGRAM){
+      window.open(`https://t.me/${SHARE_TELEGRAM}?text=${encoded}`, '_blank');
+    } else {
+      // Универсально: системное «Поделиться» на телефоне
+      if(navigator.share){
+        navigator.share({ title:'Мой идеальный вечер', text }).catch(()=>{});
+      } else {
+        // Фолбэк: копируем в буфер
+        navigator.clipboard?.writeText(text).then(()=>{
+          const btn = document.getElementById('shareBtn');
+          const old = btn.textContent;
+          btn.textContent = '✅ Скопировано!';
+          setTimeout(()=> btn.textContent = old, 1800);
+        });
+      }
+    }
+  });
+
+  /* ---------- Конфетти ---------- */
+  function burstConfetti(){
+    const colors = ['#ffb3c6','#ffd6a5','#ff8fb1','#ffe4ef','#c9a7ff','#ffc9de'];
+    for(let i=0;i<60;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random()*100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random()*colors.length)];
+      c.style.animationDuration = (2.2 + Math.random()*1.8) + 's';
+      c.style.animationDelay = (Math.random()*0.6) + 's';
+      c.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+      c.style.width = (6 + Math.random()*8) + 'px';
+      c.style.height = (8 + Math.random()*10) + 'px';
+      document.body.appendChild(c);
+      setTimeout(()=> c.remove(), 5000);
+    }
+  }
+
+  /* ---------- Перезапуск ---------- */
+  document.getElementById('restart').addEventListener('click', ()=>{
+    state.type = null; state.date = null; state.time = null; state.mood = null;
+    document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));
+    next1.disabled = true;
+    finishBtn.disabled = true;
+    dateInput.value = iso;
+    timeInput.value = '19:00';
+    goTo(0);
+  });
+</script>
+</body>
+</html>
